@@ -261,6 +261,7 @@ target/release/hmmibd-rs \
     --par-chunk-size 10 \
     -o tmp  -r 6.66667e-7
 ```
+
 Please note there are two options for `--par-mode`. Mode 0 is generally suitable
 for small sample sizes, while mode 1 is better for large sample sizes. See the
 corresponding help message by running `hmmibd-rs -h`.
@@ -517,3 +518,10 @@ The output files follow the same format as `hmmIBD`:
 > - **fract_vit_sites_IBD**: Fraction of variant sites called IBD calculated
 >   for the best state assignment (i.e. the result of the Viterbi algorithm, as in
 >   seq_shared_best_traj).
+
+## Preprint
+
+> Bing Guo, Stephen F. Schaffner, Aimee R. Taylor et al. hmmibd-rs: An enhanced
+> hmmIBD implementation for parallelizable identity-by-descent detection from
+> large-scale Plasmodium genomic data, 02 July 2025, PREPRINT (Version 1)
+> available at Research Square [https://doi.org/10.21203/rs.3.rs-7004070/v1]
