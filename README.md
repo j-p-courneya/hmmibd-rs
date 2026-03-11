@@ -519,9 +519,9 @@ The output files follow the same format as `hmmIBD`:
 >   for the best state assignment (i.e. the result of the Viterbi algorithm, as in
 >   seq_shared_best_traj).
 
-## Preprint
+## Citation
 
-> Bing Guo, Stephen F. Schaffner, Aimee R. Taylor et al. hmmibd-rs: An enhanced
-> hmmIBD implementation for parallelizable identity-by-descent detection from
-> large-scale Plasmodium genomic data, 02 July 2025, PREPRINT (Version 1)
-> available at Research Square [https://doi.org/10.21203/rs.3.rs-7004070/v1]
+> Guo, B., Schaffner, S.F., Taylor, A.R. et al.
+> hmmibd-rs: an enhanced hmmIBD implementation for parallelizable identity-by-descent
+> detection from large-scale Plasmodium genomic data.
+> Malar J 25, 110 (2026). https://doi.org/10.1186/s12936-026-05814-2
