@@ -154,7 +154,7 @@ where
         self.data.extend(other.data.iter());
         self.nrows += other.nrows;
     }
-    pub fn get_row_chunk_view(&self, start_row: usize, end_row: usize) -> MatrixView<T> {
+    pub fn get_row_chunk_view(&self, start_row: usize, end_row: usize) -> MatrixView<'_, T> {
         assert!(start_row <= end_row);
         let nrows = self.get_nrows();
         let ncols = self.get_ncols();
@@ -165,7 +165,11 @@ where
             nrows: end_row - start_row,
         }
     }
-    pub fn get_row_chunk_view_mut(&mut self, start_row: usize, end_row: usize) -> MatrixViewMut<T> {
+    pub fn get_row_chunk_view_mut(
+        &mut self,
+        start_row: usize,
+        end_row: usize,
+    ) -> MatrixViewMut<'_, T> {
         assert!(start_row <= end_row);
         let nrows = self.get_nrows();
         let ncols = self.get_ncols();
