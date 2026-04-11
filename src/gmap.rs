@@ -23,6 +23,8 @@ pub enum Error {
     ParseFloatError(#[from] std::num::ParseFloatError),
     #[error("{0:?}")]
     ParseIntError(#[from] std::num::ParseIntError),
+    #[error("genetic map cM values is not in increasing order when sorted by bp")]
+    CmNotInOrder,
 }
 
 impl FromIterator<(u32, f64)> for GeneticMap {
@@ -119,6 +121,14 @@ impl GeneticMap {
         // println!("the third last pair: {:?}", v[v.len() - 3]);
         // println!("the second last pair: {:?}", v[v.len() - 2]);
         // println!("last pair: {:?}", v.last().unwrap());
+        v.sort_by_key(|(bp, _cm)| *bp);
+        let cm_is_in_order = v
+            .iter()
+            .zip(v.iter().skip(1))
+            .all(|((_, cm1), (_, cm2))| cm1 < cm2);
+        if !cm_is_in_order {
+            return Err(Error::CmNotInOrder);
+        }
         Ok(Self(v))
     }
     pub fn get_cm(&self, bp: u32) -> f64 {
