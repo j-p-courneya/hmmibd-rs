@@ -23,8 +23,12 @@ pub enum Error {
     ParseFloatError(#[from] std::num::ParseFloatError),
     #[error("{0:?}")]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error("genetic map cM values is not in increasing order when sorted by bp")]
+    #[error("genetic map cM values is not in nondecreasing order")]
     CmNotInOrder,
+    #[error("genetic map bp values is not in increasing order")]
+    BpNotInOrder,
+    #[error("genetic map bp values should be at least 1 (1-based position)")]
+    BpTooSmall,
 }
 
 impl FromIterator<(u32, f64)> for GeneticMap {
@@ -86,24 +90,35 @@ impl GeneticMap {
             .from_path(&p)?;
 
         while reader.read_record(&mut record)? {
-            if record.len() < 3 {
+            if record.len() < 4 {
                 return Err(Error::CsvNotEnoughColumns {
-                    expect: 3,
+                    expect: 4,
                     actual: record.len(),
                 });
             }
             // println!("{:?}", record);
             let cm = record[2].parse::<f64>()?;
             // use 0-based position
-            let bp: u32 = record[3].parse::<u32>()? - 1;
-            // println!("record: cm={}, bp={}", cm, bp);
+            eprintln!("error: {}", &record[3]);
+            let mut bp: u32 = record[3].parse::<u32>()?;
+            eprintln!("error2");
             if bp == 0 {
+                return Err(Error::BpTooSmall);
+            }
+            bp = bp - 1;
+            // println!("record: cm={}, bp={}", cm, bp);
+
+            // if there is a record with bp = 0, replace it with the one initially added
+            if bp == 0 {
+                v.pop();
+                v.push((bp, cm));
                 continue;
             }
-            assert!(
-                (bp, cm) > v[v.len() - 1],
-                "genetic map should be ordered by position"
-            );
+
+            let last_bp = v[v.len() - 1].0;
+            if last_bp >= bp {
+                return Err(Error::BpNotInOrder);
+            }
             v.push((bp, cm));
         }
 
@@ -118,14 +133,10 @@ impl GeneticMap {
             }
             v.push((chrlen, end_cm));
         }
-        // println!("the third last pair: {:?}", v[v.len() - 3]);
-        // println!("the second last pair: {:?}", v[v.len() - 2]);
-        // println!("last pair: {:?}", v.last().unwrap());
-        v.sort_by_key(|(bp, _cm)| *bp);
         let cm_is_in_order = v
             .iter()
             .zip(v.iter().skip(1))
-            .all(|((_, cm1), (_, cm2))| cm1 < cm2);
+            .all(|((_, cm1), (_, cm2))| cm1 <= cm2);
         if !cm_is_in_order {
             return Err(Error::CmNotInOrder);
         }
@@ -231,4 +242,30 @@ impl GeneticMap {
         }
         Ok(())
     }
+}
+
+#[test]
+fn test_gmap_from_plink_map() {
+    let p = "_tmp.map";
+
+    std::fs::write(p, "1 . 0.0 0\n1 . 1.0 15000\n1 . 2.0 30000\n").unwrap();
+    assert!(matches!(
+        GeneticMap::from_plink_map(p, 30000),
+        Err(Error::BpTooSmall)
+    ));
+
+    std::fs::write(p, "1 . 0.0 10\n1 . 1.0 15000\n1 . 2.0 30000\n").unwrap();
+    assert!(matches!(GeneticMap::from_plink_map(p, 30000), Ok(_)));
+
+    std::fs::write(p, "1 . 1.0 15000\n1 . 2.0 14000\n").unwrap();
+    assert!(matches!(
+        GeneticMap::from_plink_map(p, 30000),
+        Err(Error::BpNotInOrder)
+    ));
+
+    std::fs::write(p, "1 . 1.0 15000\n1 . 0.9 30000\n").unwrap();
+    assert!(matches!(
+        GeneticMap::from_plink_map(p, 30000),
+        Err(Error::CmNotInOrder)
+    ));
 }
