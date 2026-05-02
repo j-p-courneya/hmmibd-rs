@@ -59,8 +59,8 @@ pub enum Error {
     #[error("cli argument error: output prefix cannot be inferred")]
     OutputPrefixCantBeInferred,
 
-    #[error("frequency inference error: zero non-missing allele")]
-    FreqInferenceZeroNonMissAllele,
+    #[error("frequency inference error: genotype missing across all samples at a given site")]
+    FreqInferenceZeroNonMissGenotype,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -720,7 +720,7 @@ impl InputData {
                 cnts[allele as usize] += 1;
             }
             if total == 0 {
-                return Err(Error::FreqInferenceZeroNonMissAllele);
+                return Err(Error::FreqInferenceZeroNonMissGenotype);
             }
 
             for each in cnts.iter() {
@@ -954,6 +954,32 @@ fn read_inputdata() {
     let _input = InputData::from_args(&args);
 }
 
+#[test]
+fn read_inputdata_freq_calc_error() {
+    let mut args = Arguments::new_for_test();
+    // set freq_file1 and data files
+    args.freq_file1 = None;
+    args.freq_file2 = None;
+    args.data_file1 = "_tmp_hmm_input.txt".to_string();
+    args.data_file2 = None;
+
+    // write data file
+    std::fs::write(
+        &args.data_file1,
+        concat!(
+            "chr\tpos\ts1\ts2\ts3\ts4\n",
+            "1\t100\t1\t0\t1\t0\n",
+            "1\t200\t-1\t-1\t-1\t-1\n",
+            "1\t300\t1\t0\t1\t0\n"
+        ),
+    )
+    .unwrap();
+
+    assert!(matches!(
+        InputData::from_args(&args),
+        Err(Error::FreqInferenceZeroNonMissGenotype)
+    ));
+}
 pub struct FracRecord<'a> {
     pub sample1: &'a str,
     pub sample2: &'a str,
