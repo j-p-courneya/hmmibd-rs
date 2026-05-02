@@ -58,6 +58,9 @@ pub enum Error {
 
     #[error("cli argument error: output prefix cannot be inferred")]
     OutputPrefixCantBeInferred,
+
+    #[error("frequency inference error: zero non-missing allele")]
+    FreqInferenceZeroNonMissAllele,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -335,14 +338,14 @@ impl InputData {
         let freq1 = if let Some(freq_file1) = args.freq_file1.as_ref() {
             Self::read_freq_file(freq_file1, args, &genome, &sites)?
         } else {
-            Self::infer_freq_from_data(&geno1, &sites, args)
+            Self::infer_freq_from_data(&geno1, &sites, args)?
         };
 
         let freq2 = match (geno2.as_ref(), args.freq_file2.as_ref()) {
             (Some(_), Some(freq_file2)) => {
                 Some(Self::read_freq_file(freq_file2, args, &genome, &sites)?)
             }
-            (Some(geno2), None) => Some(Self::infer_freq_from_data(geno2, &sites, args)),
+            (Some(geno2), None) => Some(Self::infer_freq_from_data(geno2, &sites, args)?),
             _ => None,
         };
         let pairs = Self::get_valid_pair_file(args, &valid_samples)?;
@@ -696,7 +699,11 @@ impl InputData {
         let freq = freq.finish();
         Ok(freq)
     }
-    pub fn infer_freq_from_data(geno: &Matrix<u8>, sites: &Sites, args: &Arguments) -> Matrix<f64> {
+    pub fn infer_freq_from_data(
+        geno: &Matrix<u8>,
+        sites: &Sites,
+        args: &Arguments,
+    ) -> Result<Matrix<f64>, Error> {
         // assert gentoeyps is still site oriented
         assert_eq!(geno.get_nrows(), sites.get_pos_slice().len());
 
@@ -712,13 +719,17 @@ impl InputData {
                 total += 1;
                 cnts[allele as usize] += 1;
             }
+            if total == 0 {
+                return Err(Error::FreqInferenceZeroNonMissAllele);
+            }
+
             for each in cnts.iter() {
                 let af = Some(*each as f64 / total as f64);
                 freq.push(af);
             }
         }
 
-        freq.finish()
+        Ok(freq.finish())
     }
 
     fn get_valid_pair_file(
