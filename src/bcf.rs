@@ -49,6 +49,9 @@ pub enum Error {
 
     #[error("bincode error: {0:?}")]
     BincodeErr(#[from] bincode::Error),
+
+    #[error("input BCF misses the Format/AD field needed to infer dominant allele from unphased genotype")]
+    BcfMissingFormatADField,
 }
 
 impl BcfFilterArgs {
@@ -130,7 +133,9 @@ impl BcfGenotype {
         let header = reader.read_header()?;
         // .map_err(|e| bcf_reader::Error::ParseHeaderError(e))?;
         let mut record = Record::default();
-        let ad_key = header.get_idx_from_dictionary_str("FORMAT", "AD").unwrap();
+        let ad_key = header
+            .get_idx_from_dictionary_str("FORMAT", "AD")
+            .ok_or(Error::BcfMissingFormatADField)?;
         let mut chrname_map = HashMap::<String, usize>::new();
         for (id, dict) in header.dict_contigs().iter() {
             let chrname = dict["ID"].to_owned();
