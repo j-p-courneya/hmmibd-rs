@@ -9,3 +9,6 @@ hmmIBD
 # hmmIBD or hmmibd-rs output files
 *.hmm.txt
 *hmm_fract.txt
+
+# PR working notes
+pr_notes/

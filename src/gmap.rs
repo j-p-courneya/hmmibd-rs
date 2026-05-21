@@ -105,7 +105,7 @@ impl GeneticMap {
             if bp == 0 {
                 return Err(Error::BpTooSmall);
             }
-            bp = bp - 1;
+            bp -= 1;
             // println!("record: cm={}, bp={}", cm, bp);
 
             // if there is a record with bp = 0, replace it with the one initially added
@@ -248,22 +248,22 @@ impl GeneticMap {
 fn test_gmap_from_plink_map() {
     let p = "_tmp.map";
 
-    std::fs::write(p, "1 . 0.0 0\n1 . 1.0 15000\n1 . 2.0 30000\n").unwrap();
+    assert!(std::fs::write(p, "1 . 0.0 0\n1 . 1.0 15000\n1 . 2.0 30000\n").is_ok());
     assert!(matches!(
         GeneticMap::from_plink_map(p, 30000),
         Err(Error::BpTooSmall)
     ));
 
-    std::fs::write(p, "1 . 0.0 10\n1 . 1.0 15000\n1 . 2.0 30000\n").unwrap();
-    assert!(matches!(GeneticMap::from_plink_map(p, 30000), Ok(_)));
+    assert!(std::fs::write(p, "1 . 0.0 10\n1 . 1.0 15000\n1 . 2.0 30000\n").is_ok());
+    assert!(GeneticMap::from_plink_map(p, 30000).is_ok());
 
-    std::fs::write(p, "1 . 1.0 15000\n1 . 2.0 14000\n").unwrap();
+    assert!(std::fs::write(p, "1 . 1.0 15000\n1 . 2.0 14000\n").is_ok());
     assert!(matches!(
         GeneticMap::from_plink_map(p, 30000),
         Err(Error::BpNotInOrder)
     ));
 
-    std::fs::write(p, "1 . 1.0 15000\n1 . 0.9 30000\n").unwrap();
+    assert!(std::fs::write(p, "1 . 1.0 15000\n1 . 0.9 30000\n").is_ok());
     assert!(matches!(
         GeneticMap::from_plink_map(p, 30000),
         Err(Error::CmNotInOrder)

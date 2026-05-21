@@ -157,7 +157,8 @@ impl Samples {
 }
 
 #[test]
-fn read_samples() {
+fn read_samples() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let args = Arguments::new_for_test();
-    Samples::from_args(&args, None).unwrap();
+    Samples::from_args(&args, None)?;
+    Ok(())
 }

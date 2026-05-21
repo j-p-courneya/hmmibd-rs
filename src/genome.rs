@@ -55,13 +55,11 @@ impl GenomeFile {
 }
 
 #[test]
-fn test_genome() {
+fn test_genome() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut s = String::new();
-    std::fs::File::open("testdata/sim_data/genome.toml")
-        .unwrap()
-        .read_to_string(&mut s)
-        .unwrap();
-    let _: GenomeFile = toml::from_str(&s).unwrap();
+    std::fs::File::open("testdata/sim_data/genome.toml")?.read_to_string(&mut s)?;
+    let _: GenomeFile = toml::from_str(&s)?;
+    Ok(())
 }
 
 #[derive(Default)]

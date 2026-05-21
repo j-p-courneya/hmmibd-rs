@@ -8,7 +8,7 @@ use crate::{
 pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("{0:?}")]
+    #[error(transparent)]
     DataError(#[from] data::Error),
     #[error("frequency is none")]
     FreqIsNone,
@@ -537,11 +537,7 @@ impl<'a> HmmRunner<'a> {
 
         // prevent model being trapped
         if (ms.iiter < args.max_iter as usize) && (!ms.finish_fit) {
-            if pi[0] < 1e-5 {
-                pi[0] = 1e-5;
-            } else if pi[0] > 1.0 - 1e-5 {
-                pi[0] = 1.0 - 1e-5;
-            }
+            pi[0] = pi[0].clamp(1e-5, 1.0 - 1e-5);
             if ms.model.k_rec < 1e-5 {
                 ms.model.k_rec = 1e-5;
             }
@@ -635,17 +631,17 @@ impl RunningStats {
 }
 
 #[test]
-fn test_hmm() {
+fn test_hmm() -> std::result::Result<(), Box<dyn std::error::Error>> {
     use crate::args::Arguments;
     use crate::data::OutputFiles;
     let args = Arguments::new_for_test();
 
-    let input = InputData::from_args(&args).unwrap();
+    let input = InputData::from_args(&args)?;
 
     let runner = HmmRunner::new(&input);
 
     {
-        let out = OutputFiles::new_from_args(&args, None, None).unwrap();
+        let out = OutputFiles::new_from_args(&args, None, None)?;
         let mut a = vec![];
         let mut b = vec![];
         for pair in input.pairs.iter() {
@@ -653,9 +649,9 @@ fn test_hmm() {
             let mut out = OutputBuffer::new(&out, 1, 1);
             runner
                 .run_hmm_on_pair(pair, &mut a, &mut b, &mut out, false)
-                .unwrap();
-            out.flush_frac().unwrap();
-            out.flush_segs().unwrap();
+                ?;
+            out.flush_frac()?;
+            out.flush_segs()?;
         }
     }
 
@@ -668,8 +664,7 @@ fn test_hmm() {
         }
         Command::new("gcc")
             .args(["c/hmmIBD.c", "-lm", "-O2", "-o", "hmmIBD"])
-            .status()
-            .unwrap();
+            .status()?;
     }
     Command::new("./hmmIBD")
         .args([
@@ -686,7 +681,7 @@ fn test_hmm() {
         ])
         .stdout(Stdio::null())
         .status()
-        .unwrap();
+        ?;
 
     // load data from hmmibd-rs results
     {
@@ -704,10 +699,9 @@ fn test_hmm() {
         fn load_data_from_hmm_seg_res(
             path: &str,
             sample_name_map: &HashMap<String, u32>,
-        ) -> Vec<Seg> {
+        ) -> std::result::Result<Vec<Seg>, Box<dyn std::error::Error>> {
             let mut res = vec![];
-            for line in std::fs::read_to_string(path)
-                .unwrap()
+            for line in std::fs::read_to_string(path)?
                 .trim()
                 .split("\n")
                 .skip(1)
@@ -717,18 +711,18 @@ fn test_hmm() {
                     match ifield {
                         0 => seg.sample1 = sample_name_map[field],
                         1 => seg.sample2 = sample_name_map[field],
-                        2 => seg.chr = field.parse::<u32>().unwrap(),
-                        3 => seg.start = field.parse::<u32>().unwrap(),
-                        4 => seg.end = field.parse::<u32>().unwrap(),
-                        5 => seg.different = field.parse::<u32>().unwrap(),
-                        6 => seg.nsnp = field.parse::<u32>().unwrap(),
+                        2 => seg.chr = field.parse::<u32>()?,
+                        3 => seg.start = field.parse::<u32>()?,
+                        4 => seg.end = field.parse::<u32>()?,
+                        5 => seg.different = field.parse::<u32>()?,
+                        6 => seg.nsnp = field.parse::<u32>()?,
                         _ => {}
                     }
                 }
                 res.push(seg);
                 res.sort();
             }
-            res
+            Ok(res)
         }
 
         #[derive(Default, PartialEq, PartialOrd, Debug)]
@@ -749,10 +743,9 @@ fn test_hmm() {
         fn load_data_from_hmm_frac_res(
             path: &str,
             sample_name_map: &HashMap<String, u32>,
-        ) -> Vec<Frac> {
+        ) -> std::result::Result<Vec<Frac>, Box<dyn std::error::Error>> {
             let mut res = vec![];
-            for line in std::fs::read_to_string(path)
-                .unwrap()
+            for line in std::fs::read_to_string(path)?
                 .trim()
                 .split("\n")
                 .skip(1)
@@ -762,45 +755,46 @@ fn test_hmm() {
                     match ifield {
                         0 => frac.sample1 = sample_name_map[field],
                         1 => frac.sample2 = sample_name_map[field],
-                        2 => frac.num_info_sites = field.parse::<u32>().unwrap(),
-                        3 => frac.discord = field.parse::<f64>().unwrap(),
-                        4 => frac.max_phi = field.parse::<f64>().unwrap(),
-                        5 => frac.iter = field.parse::<u32>().unwrap(),
-                        6 => frac.k_rec = field.parse::<f64>().unwrap(),
-                        7 => frac.ntrans = field.parse::<u32>().unwrap(),
-                        8 => frac.seq_ibd_ratio = field.parse::<f64>().unwrap(),
-                        9 => frac.count_ibd_fb_ratio = field.parse::<f64>().unwrap(),
-                        10 => frac.count_ibd_vit_ratio = field.parse::<f64>().unwrap(),
+                        2 => frac.num_info_sites = field.parse::<u32>()?,
+                        3 => frac.discord = field.parse::<f64>()?,
+                        4 => frac.max_phi = field.parse::<f64>()?,
+                        5 => frac.iter = field.parse::<u32>()?,
+                        6 => frac.k_rec = field.parse::<f64>()?,
+                        7 => frac.ntrans = field.parse::<u32>()?,
+                        8 => frac.seq_ibd_ratio = field.parse::<f64>()?,
+                        9 => frac.count_ibd_fb_ratio = field.parse::<f64>()?,
+                        10 => frac.count_ibd_vit_ratio = field.parse::<f64>()?,
                         _ => {}
                     }
                 }
                 res.push(frac);
-                res.sort_by(|a, b| a.partial_cmp(&b).unwrap());
+                res.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             }
-            res
+            Ok(res)
         }
 
         let sample_name_map = input.samples.m();
 
         assert_eq!(
-            load_data_from_hmm_seg_res("tmp_hmmibdrs.hmm.txt", sample_name_map),
-            load_data_from_hmm_seg_res("tmp_hmmibd.hmm.txt", sample_name_map)
+            load_data_from_hmm_seg_res("tmp_hmmibdrs.hmm.txt", sample_name_map)?,
+            load_data_from_hmm_seg_res("tmp_hmmibd.hmm.txt", sample_name_map)?
         );
         assert_eq!(
-            load_data_from_hmm_frac_res("tmp_hmmibdrs.hmm.txt", sample_name_map),
-            load_data_from_hmm_frac_res("tmp_hmmibd.hmm.txt", sample_name_map)
+            load_data_from_hmm_frac_res("tmp_hmmibdrs.hmm.txt", sample_name_map)?,
+            load_data_from_hmm_frac_res("tmp_hmmibd.hmm.txt", sample_name_map)?
         );
+        Ok(())
     }
 }
 
 #[test]
-fn test_hmm_with_bcf() {
+fn test_hmm_with_bcf() -> std::result::Result<(), Box<dyn std::error::Error>> {
     use crate::args::Arguments;
     use crate::data::OutputFiles;
     let args = Arguments::new_for_test_bcf();
 
-    let out = OutputFiles::new_from_args(&args, None, None).unwrap();
-    let input = InputData::from_args(&args).unwrap();
+    let out = OutputFiles::new_from_args(&args, None, None)?;
+    let input = InputData::from_args(&args)?;
 
     let runner = HmmRunner::new(&input);
 
@@ -811,6 +805,7 @@ fn test_hmm_with_bcf() {
         let mut out = OutputBuffer::new(&out, 1, 1);
         runner
             .run_hmm_on_pair(pair, &mut a, &mut b, &mut out, false)
-            .unwrap();
+            ?;
     }
+    Ok(())
 }

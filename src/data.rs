@@ -99,14 +99,22 @@ impl InputData {
     pub fn get_chunk_pairs(&self) -> Vec<(u32, u32)> {
         let mut chunk_pairs = vec![];
         let mut num_chunk1 = self.samples.pop1_nsam() / self.args.par_chunk_size;
-        if self.samples.pop1_nsam() % self.args.par_chunk_size > 0 {
+        if !self
+            .samples
+            .pop1_nsam()
+            .is_multiple_of(self.args.par_chunk_size)
+        {
             num_chunk1 += 1;
         }
         if self.freq2.is_some() {
             // two different populations
             assert!(self.samples.pop2_nsam() > 0);
             let mut num_chunk2 = self.samples.pop2_nsam() / self.args.par_chunk_size;
-            if self.samples.pop2_nsam() % self.args.par_chunk_size > 0 {
+            if !self
+                .samples
+                .pop2_nsam()
+                .is_multiple_of(self.args.par_chunk_size)
+            {
                 num_chunk2 += 1;
             }
             for i in 0..num_chunk1 {
@@ -964,7 +972,7 @@ fn read_inputdata_freq_calc_error() {
     args.data_file2 = None;
 
     // write data file
-    std::fs::write(
+    let write_result = std::fs::write(
         &args.data_file1,
         concat!(
             "chr\tpos\ts1\ts2\ts3\ts4\n",
@@ -972,8 +980,8 @@ fn read_inputdata_freq_calc_error() {
             "1\t200\t-1\t-1\t-1\t-1\n",
             "1\t300\t1\t0\t1\t0\n"
         ),
-    )
-    .unwrap();
+    );
+    assert!(write_result.is_ok(), "failed to write temporary input data file for test");
 
     assert!(matches!(
         InputData::from_args(&args),
@@ -1055,7 +1063,7 @@ impl<'a> OutputBuffer<'a> {
                 seg.ibd,
                 seg.n_snp,
             )
-            .unwrap();
+            .map_err(|source| Error::Io { source, file: None })?;
         }
         self.segs.clear();
         Ok(())
@@ -1083,7 +1091,7 @@ impl<'a> OutputBuffer<'a> {
                 frac.count_ibd_fb_ratio,
                 frac.count_ibd_vit_ratio,
             )
-            .unwrap();
+            .map_err(|source| Error::Io { source, file: None })?;
         }
         self.fracs.clear();
         Ok(())

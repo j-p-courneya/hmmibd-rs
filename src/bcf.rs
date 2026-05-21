@@ -249,7 +249,13 @@ impl BcfGenotype {
         let header = reader.read_header()?;
         // .map_err(|e| bcf_reader::Error::ParseHeaderError(e))?;
         let mut record = Record::default();
-        let gt_key = header.get_idx_from_dictionary_str("FORMAT", "GT").unwrap();
+        let gt_key = header
+            .get_idx_from_dictionary_str("FORMAT", "GT")
+            .ok_or_else(|| {
+                Error::BcfReaderError(bcf_reader::Error::Other(
+                    "input BCF misses the Format/GT field".to_owned(),
+                ))
+            })?;
         let nsam = header.get_samples().len();
         let mut chrname_map = HashMap::<String, usize>::new();
         for (id, dict) in header.dict_contigs().iter() {
@@ -306,19 +312,16 @@ impl BcfGenotype {
                     .try_for_each(|(iploidy, nv_res)| -> Result<()> {
                         let (_noploidy, dot, _phased, allele) = nv_res?.gt_val();
                         match iploidy {
-                            0 => {
-                                if !dot {
-                                    first_ploidy_allele = allele as i8;
-                                    site_nonmiss_counter += 1;
-                                }
+                            0 if !dot => {
+                                first_ploidy_allele = allele as i8;
+                                site_nonmiss_counter += 1;
                             }
-                            1 => {
-                                if (!dot) && _noploidy {
-                                    return Err(Error::BcfReaderError(bcf_reader::Error::Other(
-                                        "genotype should be phased".to_owned(),
-                                    )));
-                                }
+                            1 if (!dot) && _noploidy => {
+                                return Err(Error::BcfReaderError(bcf_reader::Error::Other(
+                                    "genotype should be phased".to_owned(),
+                                )));
                             }
+                            0 | 1 => {}
                             _ => {}
                         }
                         Ok(())
@@ -364,7 +367,13 @@ impl BcfGenotype {
         let header = reader.read_header()?;
         // .map_err(|e| bcf_reader::Error::ParseHeaderError(e))?;
         let mut record = Record::default();
-        let gt_key = header.get_idx_from_dictionary_str("FORMAT", "GT").unwrap();
+        let gt_key = header
+            .get_idx_from_dictionary_str("FORMAT", "GT")
+            .ok_or_else(|| {
+                Error::BcfReaderError(bcf_reader::Error::Other(
+                    "input BCF misses the Format/GT field".to_owned(),
+                ))
+            })?;
         let nsam = header.get_samples().len();
         let mut chrname_map = HashMap::<String, usize>::new();
         for (id, dict) in header.dict_contigs().iter() {
@@ -670,7 +679,7 @@ impl BcfGenotype {
         let mut geno1 = MatrixBuilder::<u8>::new(n_valid_samples);
 
         // dbg!(nsam, chr_vec.len(), nsam * chr_vec.len(), dom_vec.len());
-        for (i, (chr_idx, pos)) in chr_vec.into_iter().zip(pos_vec.into_iter()).enumerate() {
+        for (i, (chr_idx, pos)) in chr_vec.into_iter().zip(pos_vec).enumerate() {
             if (last_chrid == chr_idx) && (pos - last_pos < min_snp_sep as i32) {
                 continue;
             }
@@ -765,7 +774,7 @@ impl BcfGenotype {
         }
         for (chrname, chrid) in self.chrname_map.iter() {
             if self.chr_vec.iter().any(|id| *id as usize == *chrid) {
-                let bcf_gt_chr = self.restricted_to_a_chromsome(&chrname);
+                let bcf_gt_chr = self.restricted_to_a_chromsome(chrname);
                 let p = format!("{output_prefix}_{chrname}.bin");
                 bcf_gt_chr.save_to_file(&p)?;
             }
@@ -835,8 +844,7 @@ fn get_maf_and_sorted_allele_count(
         }
     }
     allele_counts.sort_by_key(|(_idx, cnt)| u32::MAX - cnt); // reverse sort
-    let maf = allele_counts[1].1 as f32 / tot_allele_counts as f32;
-    maf
+    allele_counts[1].1 as f32 / tot_allele_counts as f32
 }
 
 fn is_major_and_minor_allele_snps(
@@ -848,7 +856,7 @@ fn is_major_and_minor_allele_snps(
     let major_allele = &record.buf_shared()[rng.start..rng.end];
     let rng = &rngs[allele_counts[1].0];
     let minor_allele = &record.buf_shared()[rng.start..rng.end];
-    if (major_allele.len() != minor_allele.len())
+    !((major_allele.len() != minor_allele.len())
         || (major_allele[0] == b'*')
         || (minor_allele[0] == b'*')
         || (major_allele
@@ -856,12 +864,7 @@ fn is_major_and_minor_allele_snps(
             .zip(minor_allele.iter())
             .map(|(a, b)| (a != b) as usize)
             .sum::<usize>()
-            > 1)
-    {
-        false
-    } else {
-        true
-    }
+            > 1))
 }
 
 /// test if current site has no filter or pass filter
